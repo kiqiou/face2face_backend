@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from booking.models import Booking
-from booking.serializers import BookingSerializer
+from booking.serializers import BookingCreateSerializer, BookingSerializer
 from django.utils import timezone
 from datetime import datetime, timedelta
 
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 @permission_classes([IsAuthenticated])
 def create_booking(request):
     user = request.user
-    serializer = BookingSerializer(data=request.data)
+    serializer = BookingCreateSerializer(data=request.data)
     if serializer.is_valid():
         appointment = serializer.validated_data['appointment']
         if not appointment.status:
