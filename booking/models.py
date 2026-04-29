@@ -5,6 +5,7 @@ class Cosmetologist(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cosmetologist_profile')
     bio = models.TextField(blank=True)
     specializations = models.CharField(max_length=255, blank=True)
+    avatar_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.username}"
@@ -18,21 +19,27 @@ class Procedure(models.Model):
     def __str__(self):
         return f"{self.name} ({self.cosmetologist})"
 
-class Appointment(models.Model):
-    date = models.DateField(null=False)
-    time = models.TimeField(null=False)
-    cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE, related_name='appointments')
-    status = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"{self.date} {self.time} | {self.procedure.name}"
-
 class Booking(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
-    procedure = models.ForeignKey(Procedure, on_delete=models.CASCADE, related_name='bookings')
-    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE)
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    procedures = models.ManyToManyField(Procedure)
+    duration = models.DurationField()
+    price = models.IntegerField()
     status = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f'{self.user.username} - {self.appointment}'
+class WorkDay(models.Model):
+    cosmetologist = models.ForeignKey(
+        Cosmetologist,
+        on_delete=models.CASCADE,
+        related_name='work_days'
+    )
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_working = models.BooleanField(default=True)
 
+    def __str__(self):
+        return f'{self.cosmetologist} {self.date}'

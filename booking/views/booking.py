@@ -2,51 +2,98 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from booking.models import Booking
-from booking.serializers import BookingCreateSerializer, BookingSerializer
-from django.utils import timezone
+from booking.models import Booking, Procedure, WorkDay
+from booking.serializers import BookingSerializer
 from datetime import datetime, timedelta
+
+from tg_bot.signals import send_booking_created
+
+def calculate_free_intervals(work_day):
+    bookings = Booking.objects.filter(
+        cosmetologist=work_day.cosmetologist,
+        date=work_day.date,
+        status=True
+    ).order_by('start_time')
+
+    free_intervals = []
+
+    current_start = work_day.start_time
+
+    for booking in bookings:
+        if booking.start_time > current_start:
+            free_intervals.append((current_start, booking.start_time))
+        current_start = max(current_start, booking.end_time)
+
+    if current_start < work_day.end_time:
+        free_intervals.append((current_start, work_day.end_time))
+
+    return free_intervals
+
+def find_slot_for_duration(free_intervals, duration, date):
+    for start, end in free_intervals:
+        start_dt = datetime.combine(date, start)
+        end_dt = datetime.combine(date, end)
+
+        if end_dt - start_dt >= duration:
+            return start_dt
+
+    return None
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_booking(request):
     user = request.user
-    serializer = BookingCreateSerializer(data=request.data)
-    if serializer.is_valid():
-        appointment = serializer.validated_data['appointment']
-        if not appointment.status:
-            return Response({'error': 'Это свободное окно уже занято'}, status=status.HTTP_400_BAD_REQUEST)
+    procedure_ids = request.data.get('procedure_ids')
+    work_day_id = request.data.get('work_day_id')
+    start_time_str = request.data.get('start_time')  # <- добавляем время от фронта
 
-        booking = Booking.objects.create(user=user, appointment=appointment, status=True)
+    work_day = WorkDay.objects.get(id=work_day_id, is_working=True)
+    procedures = Procedure.objects.filter(id__in=procedure_ids)
+    
+    duration = sum((p.duration for p in procedures), timedelta())  # или как у тебя
 
-        appointment.status = False
-        appointment.save()
+    if start_time_str:
+        start_dt = datetime.combine(work_day.date, datetime.strptime(start_time_str, '%H:%M').time())
+    else:
+        # fallback на первый свободный слот
+        free_intervals = calculate_free_intervals(work_day)
+        start_dt = find_slot_for_duration(free_intervals, duration, work_day.date)
 
-        return Response({'detail': 'Запись подтверждена', 'booking_id': booking.id}, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    end_dt = start_dt + duration
+
+    if start_dt.time() < work_day.start_time or end_dt.time() > work_day.end_time:
+        return Response({'error': 'Вне рабочего времени'}, status=400)
+
+    booking = Booking.objects.create(
+        user=user,
+        cosmetologist=work_day.cosmetologist,
+        date=work_day.date,
+        start_time=start_dt.time(),
+        end_time=end_dt.time(),
+        duration=duration,
+        price=sum(p.price for p in procedures),
+        status=True
+    )
+
+    booking.procedures.set(procedures)
+    send_booking_created(booking)
+
+    serializer = BookingSerializer(booking)
+    return Response(serializer.data, status=201)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def cancel_booking(request, booking_id):
     user = request.user
+    
     try:
-        booking = Booking.objects.get(id=booking_id, user=user)
+        booking = Booking.objects.get(id=booking_id)
+        
+        if user == booking.user or user == booking.cosmetologist.user:
+            booking.delete()
+            return Response({'detail': 'Бронирование отменено'}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'error': 'Нет прав на отмену этой брони'}, status=status.HTTP_403_FORBIDDEN)
+            
     except Booking.DoesNotExist:
         return Response({'error': 'Бронирование не найдено'}, status=status.HTTP_404_NOT_FOUND)
-
-    appointment = booking.appointment
-    now = timezone.now()
-
-    appointment_datetime = timezone.make_aware(
-        datetime.combine(appointment.date, appointment.time)
-    )
-
-    if appointment_datetime - now < timedelta(hours=12):
-        return Response({'error': 'Самостоятельная отмена невозможна менее чем за 12 часов до процедуры'}, status=status.HTTP_400_BAD_REQUEST)
-
-    booking.delete()
-    
-    appointment.status = True
-    appointment.save()
-
-    return Response({'detail': 'Бронирование отменено'}, status=status.HTTP_204_NO_CONTENT)
