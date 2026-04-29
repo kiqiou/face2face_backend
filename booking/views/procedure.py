@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from booking.models import Procedure
+from booking.models import Cosmetologist, Procedure
 from booking.serializers import ProcedureSerializer
 
 @api_view(['POST'])
@@ -14,7 +14,8 @@ def add_procedure(request):
 
     serializer = ProcedureSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save(cosmetologist=user.cosmetologist_profile)
+        cosmetologist = Cosmetologist.objects.get(user=user.id)
+        serializer.save(cosmetologist=cosmetologist)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

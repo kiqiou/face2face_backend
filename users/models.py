@@ -12,12 +12,12 @@ class Role(models.Model):
 
 
 class User(AbstractUser):
+    telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
     phone = models.CharField(
         max_length=20,
         unique=True,
         validators=[RegexValidator(r'^\+375\d{9}$', message='Неверный формат номера (+375XXXXXXXXX)')])
-    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
 
     def is_cosmetologist(self):
         return self.role and self.role.name == 'cosmetologist'
