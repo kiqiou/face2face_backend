@@ -15,18 +15,11 @@ class CosmetologistSerializer(serializers.ModelSerializer):
         return obj.avatar_url
 
 class ProcedureSerializer(serializers.ModelSerializer):
-    cosmetologist = serializers.SerializerMethodField()
+    cosmetologist = CosmetologistSerializer()
 
     class Meta:
         model = Procedure
         fields = ['id', 'name', 'price', 'duration', 'cosmetologist']
-
-    def get_cosmetologist(self, obj):
-        if not obj.cosmetologist:
-            return None
-        return {
-            'id': obj.cosmetologist.id,
-        }
 
 class WorkDaySerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
