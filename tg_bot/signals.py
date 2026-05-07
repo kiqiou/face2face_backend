@@ -32,9 +32,6 @@ def send_booking_created(booking: Booking):
     
     procedures = ", ".join([p.name for p in booking.procedures.all()])
     
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("📋 Мои записи", callback_data=f"my_bookings_{booking.user_id}"))
-    
     message = (
         f"🆕 <b>Новая запись</b>\n\n"
         f"💇‍♀️ Косметолог: {booking.cosmetologist.user.username}\n"
@@ -47,22 +44,27 @@ def send_booking_created(booking: Booking):
     )
     
     if user_chat_id:
-        bot.send_message(user_chat_id, message, reply_markup=keyboard, parse_mode="HTML")
+        bot.send_message(user_chat_id, message, parse_mode="HTML")
     if cosmetologist_chat_id:
-        bot.send_message(cosmetologist_chat_id, message, reply_markup=keyboard, parse_mode="HTML")
+        bot.send_message(cosmetologist_chat_id, message, parse_mode="HTML")
 
 def send_booking_updated(booking: Booking):
-    chat_id = get_user_chat_id(booking.user_id)
-    if not chat_id:
+    user_chat_id = get_user_chat_id(booking.user_id)
+    cosmetologist_chat_id = get_user_chat_id(booking.cosmetologist.user.id)
+    
+    if not user_chat_id and not cosmetologist_chat_id:
         return
     
-    bot.send_message(
-        chat_id,
+    message = (
         f"✏️ <b>Запись обновлена</b>\n"
         f"ID: <code>{booking.id}</code>\n"
         f"💰 {booking.price}BYN | {booking.date} {booking.start_time}",
-        parse_mode="HTML"
     )
+    
+    if user_chat_id:
+        bot.send_message(user_chat_id, message, parse_mode="HTML")
+    if cosmetologist_chat_id:
+        bot.send_message(cosmetologist_chat_id, message, parse_mode="HTML")
 
 def send_booking_deleted(booking: Booking):
     chat_id = get_user_chat_id(booking.user_id)
