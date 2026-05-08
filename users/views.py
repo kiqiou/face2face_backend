@@ -63,7 +63,13 @@ def confirm_phone_code(request):
     if cached_code != code:
         return Response({'error': 'Неверный код'}, status=400)
 
-    user = User.objects.get(phone=phone)
+    user, created = User.objects.get_or_create(
+        phone=phone,
+        defaults={
+            "username": phone,
+            "is_active": True,
+        }
+    )
     
     if user.role_id == 2 or str(user.role) == "cosmetologist": 
         try:
