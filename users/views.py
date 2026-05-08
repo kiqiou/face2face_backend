@@ -79,21 +79,21 @@ def confirm_phone_code(request):
 
     telegram_id = cache.get(f"tg_chat:{phone}")
 
-    # if telegram_id:
-    #     user.telegram_id = telegram_id
-    #     user.save(update_fields=["telegram_id"])
-    #     cache.set(f"user:{user.id}:chat", telegram_id, 86400 * 30) 
-
     if telegram_id:
-        existing_user = User.objects.filter(telegram_id=telegram_id).exclude(id=user.id).first()
-        if existing_user:
-            existing_user.telegram_id = None
-            existing_user.save(update_fields=["telegram_id"])
-
         user.telegram_id = telegram_id
         user.save(update_fields=["telegram_id"])
+        cache.set(f"user:{user.id}:chat", telegram_id, 86400 * 30) 
 
-        cache.set(f"user:{user.id}:chat", telegram_id, 86400 * 30)
+    # if telegram_id:
+    #     existing_user = User.objects.filter(telegram_id=telegram_id).exclude(id=user.id).first()
+    #     if existing_user:
+    #         existing_user.telegram_id = None
+    #         existing_user.save(update_fields=["telegram_id"])
+
+    #     user.telegram_id = telegram_id
+    #     user.save(update_fields=["telegram_id"])
+
+    #     cache.set(f"user:{user.id}:chat", telegram_id, 86400 * 30)
 
     if not user.username or user.username.startswith('temp_'):
         user.username = phone
