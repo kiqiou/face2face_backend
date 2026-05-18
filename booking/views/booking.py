@@ -47,17 +47,16 @@ def create_booking(request):
     user = request.user
     procedure_ids = request.data.get('procedure_ids')
     work_day_id = request.data.get('work_day_id')
-    start_time_str = request.data.get('start_time')  # <- добавляем время от фронта
+    start_time_str = request.data.get('start_time') 
 
     work_day = WorkDay.objects.get(id=work_day_id, is_working=True)
     procedures = Procedure.objects.filter(id__in=procedure_ids)
     
-    duration = sum((p.duration for p in procedures), timedelta())  # или как у тебя
+    duration = sum((p.duration for p in procedures), timedelta())
 
     if start_time_str:
         start_dt = datetime.combine(work_day.date, datetime.strptime(start_time_str, '%H:%M').time())
     else:
-        # fallback на первый свободный слот
         free_intervals = calculate_free_intervals(work_day)
         start_dt = find_slot_for_duration(free_intervals, duration, work_day.date)
 
