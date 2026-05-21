@@ -9,8 +9,6 @@ from booking.serializers import ProcedureSerializer
 @permission_classes([IsAuthenticated])
 def add_procedure(request):
     user = request.user
-    if not user.is_cosmetologist():
-        return Response({'error': 'Только косметологи могут создавать процедуры'}, status=status.HTTP_403_FORBIDDEN)
 
     serializer = ProcedureSerializer(data=request.data)
     if serializer.is_valid():

@@ -14,6 +14,7 @@ class Procedure(models.Model):
     name = models.CharField(max_length=100, null=False)
     price = models.IntegerField(null=False)
     duration = models.DurationField(null=False)  
+    description = models.TextField(blank=True)
     cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE, related_name='procedures')
 
     def __str__(self):
