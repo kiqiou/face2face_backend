@@ -19,7 +19,7 @@ class ProcedureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Procedure
-        fields = ['id', 'name', 'price', 'duration', 'cosmetologist']
+        fields = ['id', 'name', 'price', 'duration', 'description', 'cosmetologist']
 
 class WorkDaySerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
