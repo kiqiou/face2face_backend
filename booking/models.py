@@ -10,11 +10,16 @@ class Cosmetologist(models.Model):
     def __str__(self):
         return f"{self.user.username}"
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, null=False)
+
 class Procedure(models.Model):
     name = models.CharField(max_length=100, null=False)
     price = models.IntegerField(null=False)
     duration = models.DurationField(null=False)  
     description = models.TextField(blank=True)
+    isSale = models.BooleanField(null=True)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='prodecure', null=True)
     cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE, related_name='procedures')
 
     def __str__(self):

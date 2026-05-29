@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from users.models import User
-from booking.models import Cosmetologist, Procedure, Booking, WorkDay
+from booking.models import Category, Cosmetologist, Procedure, Booking, WorkDay
 from users.serializers.user import UserSerializer
 
 class CosmetologistSerializer(serializers.ModelSerializer):
@@ -14,12 +14,17 @@ class CosmetologistSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         return obj.avatar_url
 
+class CategorySerializer(serializers.ModelSerializer):
+    model = Category
+    fields = ['id', 'name']
+
 class ProcedureSerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
+    category = CategorySerializer()
 
     class Meta:
         model = Procedure
-        fields = ['id', 'name', 'price', 'duration', 'description', 'cosmetologist']
+        fields = ['id', 'name', 'price', 'duration', 'description',  'isSale', 'cosmetologist']
 
 class WorkDaySerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
