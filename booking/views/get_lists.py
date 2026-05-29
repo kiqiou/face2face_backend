@@ -3,9 +3,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from booking.views.booking import calculate_free_intervals
 from users.models import User
-from booking.models import Cosmetologist, Procedure, Booking, WorkDay
+from booking.models import Category, Cosmetologist, Procedure, Booking, WorkDay
 from booking.serializers import (
-    CosmetologistSerializer, ProcedureSerializer, BookingSerializer, WorkDaySerializer
+    CategorySerializer, CosmetologistSerializer, ProcedureSerializer, BookingSerializer, WorkDaySerializer
 )
 
 @api_view(['GET'])
@@ -38,6 +38,13 @@ def get_cosmetologist_by_user_id(request, user_id):
 def list_procedures(request):
     procedures = Procedure.objects.all()
     serializer = ProcedureSerializer(procedures, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_categories(request):
+    categories = Category.objects.all()
+    serializer = CategorySerializer(categories, many=True, context={'request': request})
     return Response(serializer.data)
 
 @api_view(['GET'])
