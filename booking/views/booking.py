@@ -52,7 +52,11 @@ def create_booking(request):
     work_day = WorkDay.objects.get(id=work_day_id, is_working=True)
     procedures = Procedure.objects.filter(id__in=procedure_ids)
     
-    duration = sum((p.duration for p in procedures), timedelta())
+    duration = timedelta()
+
+    for p in procedures:
+        duration += p.duration
+        duration += p.buffer_time 
 
     if start_time_str:
         start_dt = datetime.combine(work_day.date, datetime.strptime(start_time_str, '%H:%M').time())
