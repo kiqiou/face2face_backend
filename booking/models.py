@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models
 from users.models import User
 
@@ -18,6 +20,7 @@ class Procedure(models.Model):
     price = models.IntegerField(null=False)
     duration = models.DurationField(null=False)  
     description = models.TextField(blank=True)
+    buffer_time = models.DurationField(default=timedelta(minutes=10))
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='prodecure', null=True)
     cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE, related_name='procedures')
 

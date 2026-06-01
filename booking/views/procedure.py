@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from booking.models import Cosmetologist, Procedure
-from booking.serializers import ProcedureCreateSerializer, ProcedureSerializer
+from booking.serializers import ProcedureCreateSerializer
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
