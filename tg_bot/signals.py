@@ -30,7 +30,7 @@ def send_booking_created(booking: Booking):
     if not user_chat_id and not cosmetologist_chat_id:
         return
     
-    procedures = ", ".join([p.name for p in booking.procedures.all()])
+    procedures = ", ".join([p.name for p in booking.procedures.all()]) or "—"
     
     message = (
         f"🆕 <b>Новая запись</b>\n\n"
@@ -40,7 +40,7 @@ def send_booking_created(booking: Booking):
         f"⏱️ Длительность: {booking.duration}\n"
         f"💰 Стоимость: {booking.price} BYN\n"
         f"📋 Процедуры: {procedures}\n"
-        f"📊 Статус: {'✅ Активна' if booking.status else '❌ Отменена'}"
+        f" Статус: {'✅ Активна' if booking.status else '❌ Отменена'}"
     )
     
     if user_chat_id:
@@ -55,10 +55,13 @@ def send_booking_updated(booking: Booking):
     if not user_chat_id and not cosmetologist_chat_id:
         return
     
+    procedures = ", ".join([p.name for p in booking.procedures.all()]) or "—"
+    
     message = (
         f"✏️ <b>Запись обновлена</b>\n"
         f"ID: <code>{booking.id}</code>\n"
-        f"💰 {booking.price}BYN | {booking.date} {booking.start_time}",
+        f"📋 Процедуры: {procedures}\n"
+        f"💰 {booking.price}BYN | {booking.date} {booking.start_time}"
     )
     
     if user_chat_id:
@@ -71,9 +74,12 @@ def send_booking_deleted(booking: Booking):
     if not chat_id:
         return
     
+    procedures = ", ".join([p.name for p in booking.procedures.all()]) or "—"
+    
     bot.send_message(
         chat_id,
         f"🗑️ <b>Запись отменена</b>\n"
         f"📅 {booking.date} {booking.start_time}\n"
+        f"📋 Процедуры: {procedures}\n"
         f"💰 {booking.price}BYN"
     )
