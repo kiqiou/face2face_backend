@@ -18,7 +18,6 @@ class Procedure(models.Model):
     price = models.IntegerField(null=False)
     duration = models.DurationField(null=False)  
     description = models.TextField(blank=True)
-    isSale = models.BooleanField(null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='prodecure', null=True)
     cosmetologist = models.ForeignKey(Cosmetologist, on_delete=models.CASCADE, related_name='procedures')
 
