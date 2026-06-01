@@ -37,6 +37,7 @@ def get_cosmetologist_by_user_id(request, user_id):
 @permission_classes([AllowAny])
 def list_procedures(request):
     procedures = Procedure.objects.all()
+    print(procedures)
     serializer = ProcedureSerializer(procedures, many=True)
     return Response(serializer.data)
 
