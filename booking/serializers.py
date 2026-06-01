@@ -15,8 +15,9 @@ class CosmetologistSerializer(serializers.ModelSerializer):
         return obj.avatar_url
 
 class CategorySerializer(serializers.ModelSerializer):
-    model = Category
-    fields = ['id', 'name']
+    class Meta:
+        model = Category
+        fields = ['id', 'name']
 
 class ProcedureSerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
