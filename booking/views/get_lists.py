@@ -33,23 +33,12 @@ def get_cosmetologist_by_user_id(request, user_id):
     serializer = CosmetologistSerializer(cosmetologist, context={'request': request})
     return Response(serializer.data)
 
-from django.http import JsonResponse
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_procedures(request):
-    try:
-        procedures = Procedure.objects.all()
-        serializer = ProcedureSerializer(procedures, many=True)
-        return JsonResponse(serializer.data, safe=False)
-    except Exception as e:
-        # Логируем ошибку
-        import traceback
-        traceback.print_exc()
-        return JsonResponse(
-            {'error': str(e), 'traceback': traceback.format_exc()}, 
-            status=500
-        )
+    procedures = Procedure.objects.all()
+    serializer = ProcedureSerializer(procedures, many=True)
+    return Response(serializer.data)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
