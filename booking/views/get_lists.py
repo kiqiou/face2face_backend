@@ -34,9 +34,10 @@ def get_cosmetologist_by_user_id(request, user_id):
     return Response(serializer.data)
 
 from django.http import JsonResponse
-from django.core.exceptions import ObjectDoesNotExist
 
-def get_procedures(request):
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_procedures(request):
     try:
         procedures = Procedure.objects.all()
         serializer = ProcedureSerializer(procedures, many=True)
