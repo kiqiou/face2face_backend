@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from users.models import User
-from booking.models import Category, Cosmetologist, Procedure, Booking, WorkDay
+from booking.models import Category, Cosmetologist, Manufacturer, Procedure, Booking, Product, SkinType, WorkDay
 from users.serializers.user import UserSerializer
 
 class CosmetologistSerializer(serializers.ModelSerializer):
@@ -83,3 +83,37 @@ class BookingSerializer(serializers.ModelSerializer):
             'status',
             'procedures'
         ]
+
+
+class ManufacturerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Manufacturer
+        fields = ['id', 'name']
+
+
+class SkinTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SkinType
+        fields = ['id', 'name', 'description']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    """Для чтения — вложенные объекты."""
+    manufacturer = ManufacturerSerializer(read_only=True)
+    skin_types = SkinTypeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'price', 'description', 'manufacturer', 'skin_types', 'image']
+
+
+class ProductCreateSerializer(serializers.ModelSerializer):
+    """Для записи — id-шники, поддерживает multipart с картинкой."""
+    manufacturer = serializers.PrimaryKeyRelatedField(queryset=Manufacturer.objects.all())
+    skin_types = serializers.PrimaryKeyRelatedField(
+        queryset=SkinType.objects.all(), many=True, required=False
+    )
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'price', 'description', 'manufacturer', 'skin_types', 'image']

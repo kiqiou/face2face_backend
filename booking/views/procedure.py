@@ -1,10 +1,24 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from booking.models import Cosmetologist, Procedure
-from booking.serializers import ProcedureCreateSerializer
+from booking.serializers import ProcedureCreateSerializer, ProcedureSerializer
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_procedures(request):
+    procedures = Procedure.objects.all()
+    serializer = ProcedureSerializer(procedures, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_procedures_by_cosmetologist(request, cosmetologist_id):
+    procedures = Procedure.objects.filter(cosmetologist_id=cosmetologist_id,)
+    serializer = ProcedureSerializer(procedures, many=True)
+    return Response(serializer.data)
+    
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def add_procedure(request):

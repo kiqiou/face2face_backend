@@ -1,0 +1,2 @@
+DATABASE_URL=postgresql://face2face_h4i7_user:qNqhgKmimrBnyLq6nMXu1aOsDPWPLLiu@dpg-d7ua2f0sfn5c73cr2i60-a.frankfurt-postgres.render.com/face2face_h4i7
+REDIS_URL=redis://red-d7v0mujrjlhs739bq7c0:6379

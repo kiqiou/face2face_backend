@@ -8,9 +8,9 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/work_days/', include('booking.urls.work_day')),
     path('api/procedures/', include('booking.urls.procedure')),
+    path('api/products/', include('booking.urls.products')),
     path('api/booking/', include('booking.urls.booking')),
     path('api/category/', include('booking.urls.category')),
-    path('api/get_lists/', include('booking.urls.get_lists')),
 ]
 
 if settings.DEBUG:

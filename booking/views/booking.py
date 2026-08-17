@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from booking import models
-from booking.models import Booking, Procedure, WorkDay
+from booking.models import Booking, Cosmetologist, Procedure, WorkDay
 from booking.serializers import BookingSerializer
 from datetime import datetime, timedelta
 from django.db.models import Q
@@ -40,6 +40,32 @@ def find_slot_for_duration(free_intervals, duration, date):
             return start_dt
 
     return None
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_bookings(request):
+    bookings = Booking.objects.filter(user=request.user, status=True)
+    serializer = BookingSerializer(bookings, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_cosmetologist_bookings(request):
+    try:
+        cosmetologist = Cosmetologist.objects.get(user=request.user)
+    except Cosmetologist.DoesNotExist:
+        return Response({'detail': 'Вы не косметолог'}, status=400)
+
+    bookings = Booking.objects.filter(cosmetologist=cosmetologist, status=True)
+    serializer = BookingSerializer(bookings, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_bookings(request):
+    bookings = Booking.objects.filter(status=True)
+    serializer = BookingSerializer(bookings, many=True, context={'request': request})
+    return Response(serializer.data)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

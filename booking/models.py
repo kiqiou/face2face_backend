@@ -1,5 +1,5 @@
 from datetime import timedelta
-
+from cloudinary.models import CloudinaryField
 from django.db import models
 from users.models import User
 
@@ -38,6 +38,15 @@ class Booking(models.Model):
     price = models.IntegerField()
     status = models.BooleanField(default=True)
 
+class Product(models.Model):
+    name = models.CharField(max_length=100, null=False)
+    price = models.IntegerField(null=False)
+    description = models.TextField(blank=True)
+
+
+    def __str__(self):
+        return f"{self.name} ({self.cosmetologist})"
+
 class WorkDay(models.Model):
     cosmetologist = models.ForeignKey(
         Cosmetologist,
@@ -51,3 +60,31 @@ class WorkDay(models.Model):
 
     def __str__(self):
         return f'{self.cosmetologist} {self.date}'
+
+class SkinType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+class Manufacturer(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    price = models.IntegerField()
+    description = models.TextField(blank=True)
+    manufacturer = models.ForeignKey(
+        Manufacturer, on_delete=models.PROTECT, related_name='products'
+    )
+    skin_types = models.ManyToManyField(
+        SkinType, related_name='products', blank=True
+    )
+    image = CloudinaryField('image', blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.manufacturer})"

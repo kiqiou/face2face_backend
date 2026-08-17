@@ -1,10 +1,47 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from booking.models import Cosmetologist, WorkDay
 from booking.serializers import WorkDaySerializer
 from booking.models import Booking
+from booking.views.booking import calculate_free_intervals
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_all_work_days(request):
+    work_days = WorkDay.objects.filter(is_working=True).prefetch_related('cosmetologist')
+    serializer = WorkDaySerializer(work_days, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_work_days_by_cosmetologist(request, cosmetologist_id):
+    work_days = WorkDay.objects.filter(
+        cosmetologist_id=cosmetologist_id,
+        is_working=True
+    )
+
+    serializer = WorkDaySerializer(work_days, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_free_intervals(request, work_day_id):
+    try:
+        work_day = WorkDay.objects.get(id=work_day_id, is_working=True)
+    except WorkDay.DoesNotExist:
+        return Response({'error': 'Рабочий день не найден'}, status=404)
+
+    free = calculate_free_intervals(work_day)
+
+    free_list = [
+        {"start": start.strftime("%H:%M"), "end": end.strftime("%H:%M")}
+        for start, end in free
+    ]
+
+    return Response(free_list)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
