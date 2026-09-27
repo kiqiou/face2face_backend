@@ -20,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 REDIS_URL = os.getenv("REDIS_URL")
+ADMIN_TG_CHAT_ID = os.getenv("ADMIN_TG_CHAT_ID")
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS',
     'localhost,127.0.0.1'

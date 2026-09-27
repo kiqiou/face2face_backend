@@ -83,3 +83,34 @@ def send_booking_deleted(booking: Booking):
         f"📋 Процедуры: {procedures}\n"
         f"💰 {booking.price}BYN"
     )
+
+# signals.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.conf import settings
+import requests
+from booking.models import Order
+
+@receiver(post_save, sender=Order)
+def notify_telegram_on_order(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    username = instance.user.username if instance.user else "Гость"
+    phone = instance.user.phone if instance.user else "Не указан"
+
+    text = (
+        f"🛒 Новый заказ #{instance.id}\n"
+        f"Имя: {username}\n"
+        f"Телефон: {phone}\n"
+        f"Оплата: {instance.get_payment_method_display()}\n"
+        f"Подтверждение: {instance.get_approvement_method_display()}"
+    )
+
+    requests.post(
+        f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+        data={
+            'chat_id': settings.ADMIN_TG_CHAT_ID,
+            'text': text
+        }
+    )

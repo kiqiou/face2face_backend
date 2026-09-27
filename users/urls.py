@@ -1,16 +1,12 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import (
-    generate_auth_token,
-    login_or_register,
-    confirm_phone_code,
-    resend_code,
+    check_auth_status,
+    generate_auth_token
 )
 
 urlpatterns = [
-    path('generate-auth/', generate_auth_token, name='generate_auth_token'),
-    path('register/',login_or_register,),
-    path('confirm/', confirm_phone_code, name='confirm_phone_code'),
-    path('resend/', resend_code, name='resend_code'),
+    path('generate-auth/', generate_auth_token),
+    path('auth-status/<str:token>/', check_auth_status),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

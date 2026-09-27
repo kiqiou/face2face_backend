@@ -10,6 +10,8 @@ urlpatterns = [
     path('api/procedures/', include('booking.urls.procedure')),
     path('api/products/', include('booking.urls.products')),
     path('api/booking/', include('booking.urls.booking')),
+    path('api/orders/', include('booking.urls.orders')),
+    path('api/cosmetologist/', include('booking.urls.cosmetologist')),
     path('api/category/', include('booking.urls.category')),
 ]
 

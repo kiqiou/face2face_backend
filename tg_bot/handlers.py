@@ -1,60 +1,59 @@
-from loguru import logger
-from telebot import types
-from django.core.cache import cache
-
-from tg_bot.initial import bot
-
-import random
 from django.core.cache import cache
 from loguru import logger
 from telebot import types
 from tg_bot.initial import bot
+
 
 @bot.message_handler(commands=["start"])
 def handle_start(message: types.Message):
     args = message.text.split()
-
     chat_id = message.chat.id
 
     if len(args) == 1:
-        bot.send_message(
-            chat_id,
-            "👋 Привет!\n\n"
-            "Чтобы авторизоваться — перейди по ссылке с сайта."
-        )
+        bot.send_message(chat_id, "👋 Привет! Перейди по ссылке с сайта, чтобы авторизоваться.")
         return
 
     token = args[1]
- 
-    data = cache.get(f"auth_pending:{token}")
 
-    if not data:
-        bot.send_message(chat_id, "Ссылка устарела")
+    if not cache.get(f"auth_pending:{token}"):
+        bot.send_message(chat_id, "Ссылка устарела, вернитесь на сайт и попробуйте снова.")
         return
 
-    code = str(random.randint(100000, 999999))
-    phone = data
+    # прямая связка в обе стороны — без сканирования ключей
+    cache.set(f"auth_chat_to_token:{chat_id}", token, 300)
 
-    cache.set(f"tg_code:{phone}", code, 300)
-    cache.set(f"tg_chat:{phone}", chat_id, 86400 * 30)
-
-    logger.info(f"Code {code} for phone {phone}")
-    print(f"Code {code} for phone {phone}")
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(types.KeyboardButton("📱 Поделиться номером телефона", request_contact=True))
 
     bot.send_message(
         chat_id,
-        f"🔐 <b>Код подтверждения</b>\n\n"
-        f"<code>{code}</code>\n\n"
-        f"Введите этот код на сайте",
-        parse_mode="HTML"
+        "Нажмите кнопку ниже, чтобы подтвердить номер и войти на сайте.",
+        reply_markup=keyboard,
     )
 
-async def get_auth_token_by_chat(chat_id: int) -> str | None:
-    tokens = cache.keys("auth:*")
-    for token_key in tokens:
-        if cache.get(token_key) == chat_id:
-            token = token_key.replace("auth:", "")
-            cache.delete(token_key)
-            return token
-    return None
 
+@bot.message_handler(content_types=["contact"])
+def handle_contact(message: types.Message):
+    chat_id = message.chat.id
+    contact = message.contact
+
+    if contact.user_id != message.from_user.id:
+        bot.send_message(chat_id, "Пожалуйста, используйте кнопку ниже, а не пересылайте контакт вручную.")
+        return
+
+    token = cache.get(f"auth_chat_to_token:{chat_id}")
+
+    if not token:
+        bot.send_message(chat_id, "Сессия авторизации не найдена, начните заново с сайта.")
+        return
+
+    phone = contact.phone_number
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    cache.set(f"auth_result:{token}", {"phone": phone, "chat_id": chat_id}, 300)
+    cache.delete(f"auth_pending:{token}")
+    cache.delete(f"auth_chat_to_token:{chat_id}")
+
+    logger.info(f"Telegram auth confirmed: token={token} chat_id={chat_id}")
+    bot.send_message(chat_id, "✅ Готово! Вернитесь на сайт — вход выполнится автоматически.", reply_markup=types.ReplyKeyboardRemove())
