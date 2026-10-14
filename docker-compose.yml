@@ -13,7 +13,7 @@ services:
       CLOUDINARY_URL: ${CLOUDINARY_URL}
     volumes:
       - .:/app
-    command: gunicorn face2face.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: gunicorn face2face_back.wsgi:application --bind 0.0.0.0:8000 --workers 3
     # порт 8000 наружу больше не публикуем — только внутри docker-сети, через nginx
 
   bot:
