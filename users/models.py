@@ -1,7 +1,5 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.utils import timezone
-import datetime
 from django.core.validators import RegexValidator
 
 class Role(models.Model):
@@ -14,6 +12,12 @@ class Role(models.Model):
 class User(AbstractUser):
     telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
+    personal_data_consent_at = models.DateTimeField(null=True, blank=True)
+    personal_data_consent_ip = models.GenericIPAddressField(null=True, blank=True)
+    manual_discount_percent = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text="Скидка, выставленная вручную — если задана, имеет приоритет над автоматической"
+    )
     phone = models.CharField(
         max_length=20,
         unique=True,
@@ -25,11 +29,3 @@ class User(AbstractUser):
     def is_client(self):
         return self.role and self.role.name == 'client'
 
-class PhoneVerificationCode(models.Model):
-    phone = models.CharField(max_length=20, unique=True)
-    code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_verified = models.BooleanField(default=False)
-
-    def is_expired(self):
-        return self.created_at + datetime.timedelta(minutes=10) < timezone.now()

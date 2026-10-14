@@ -1,8 +1,9 @@
 import mimetypes
 
 from rest_framework import serializers
+from booking.services import resolve_discount
 from users.models import User
-from booking.models import Category, Cosmetologist, ExchangeRate, Manufacturer, Procedure, Booking, Product, ProductMedia, SkinType, WorkDay
+from booking.models import Category, Cosmetologist, ExchangeRate, LoyaltyTier, Manufacturer, Procedure, Booking, Product, ProductMedia, PromoCode, PromoCodeUsage, SkinType, WorkDay
 from users.serializers.user import UserSerializer
 
 class CosmetologistSerializer(serializers.ModelSerializer):
@@ -138,6 +139,9 @@ class ProductSerializer(serializers.ModelSerializer):
     collections = CollectionSerializer(many=True, read_only=True)
     media = ProductMediaSerializer(many=True, read_only=True)
     price_usd = serializers.SerializerMethodField()
+    sale_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True, allow_null=True)
+    effective_price = serializers.SerializerMethodField()
+    is_on_sale = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()  # было полем модели — теперь полный URL
 
     class Meta:
@@ -153,6 +157,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'is_for_children', 'color_shade', 'fluoride_content',
             'batch_number',
             'conformity_document_number', 'conformity_document_valid_until',
+            'sale_price', 'effective_price', 'is_on_sale',
         ]
 
     def get_price_usd(self, obj):
@@ -167,6 +172,12 @@ class ProductSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         return obj.image.url
+
+    def get_effective_price(self, obj):
+        return obj.effective_price
+
+    def get_is_on_sale(self, obj):
+        return obj.is_on_sale
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
@@ -201,7 +212,15 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'is_for_children', 'color_shade', 'fluoride_content',
             'batch_number',
             'conformity_document_number', 'conformity_document_valid_until',
+            'sale_price',
         ]
+
+    def validate(self, data):
+        sale_price = data.get('sale_price')
+        price_amount = data.get('price_amount', getattr(self.instance, 'price_amount', None))
+        if sale_price is not None and price_amount is not None and sale_price >= price_amount:
+            raise serializers.ValidationError({'sale_price': 'Акционная цена должна быть меньше обычной'})
+        return data
         
     def create(self, validated_data):
         media_files = validated_data.pop('media', [])
@@ -248,12 +267,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
+    promo_code = serializers.CharField(source='promo_code.code', read_only=True, allow_null=True)
 
     class Meta:
         model = Order
         fields = [
             'id', 'user', 'payment_method', 'approvement_method',
-            'comment', 'status', 'created_at', 'items', 
+            'comment', 'status', 'created_at', 'items',
+            'discount_percent', 'discount_amount', 'promo_code',
         ]
 
 class OrderItemCreateSerializer(serializers.Serializer):
@@ -261,15 +282,17 @@ class OrderItemCreateSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.IntegerField(min_value=1, default=1)
 
+from django.db.models import F
+
 
 class OrderCreateSerializer(serializers.ModelSerializer):
-    """Оформление заказа — принимает список товаров, сам считает цену на момент заказа."""
     items = OrderItemCreateSerializer(many=True, write_only=True)
     user = UserSerializer(read_only=True)
+    promo_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'payment_method', 'approvement_method', 'comment', 'items']
+        fields = ['id', 'user', 'payment_method', 'approvement_method', 'comment', 'items', 'promo_code']
 
     def validate_items(self, items):
         if not items:
@@ -278,20 +301,40 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
+        promo_code_str = validated_data.pop('promo_code', None)
         user = self.context['request'].user
+
         order = Order.objects.create(
             user=user if user.is_authenticated else None,
             **validated_data
         )
+
+        subtotal = 0
+        # OrderCreateSerializer.create()
         for item in items_data:
             product = item['product']
-            OrderItem.objects.create(
+            oi = OrderItem.objects.create(
                 order=order,
                 product=product,
                 quantity=item['quantity'],
-                price_at_order=product.price_amount,
-                cost_price_at_order=product.cost_price,  # фиксируем себестоимость на момент заказа
+                price_at_order=product.effective_price,  # ← было price_amount, теперь акционная если есть
+                cost_price_at_order=product.cost_price,  # себестоимость не меняется — маржа посчитается верно
             )
+            subtotal += oi.price_at_order * oi.quantity
+
+        if user.is_authenticated:
+            discount_percent, applied_promo = resolve_discount(user, promo_code_str)
+
+            if discount_percent:
+                order.discount_percent = discount_percent
+                order.discount_amount = subtotal * discount_percent / 100
+                order.promo_code = applied_promo
+                order.save(update_fields=['discount_percent', 'discount_amount', 'promo_code'])
+
+            if applied_promo:
+                PromoCodeUsage.objects.create(promo_code=applied_promo, user=user, order=order)
+                PromoCode.objects.filter(id=applied_promo.id).update(used_count=F('used_count') + 1)
+
         return order
 
 
@@ -299,3 +342,39 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['status']
+
+class PromoCodeSerializerRead(serializers.ModelSerializer):
+    class Meta:
+        model = PromoCode
+        fields = ['id', 'code', 'discount_percent', 'is_first_order_only', 'is_active', 'valid_until']
+
+class PromoCodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PromoCode
+        fields = [
+            'id', 'code', 'discount_percent', 'is_first_order_only',
+            'is_active', 'valid_from', 'valid_until', 'usage_limit',
+            'used_count', 'created_at',
+        ]
+        read_only_fields = ['used_count', 'created_at']
+
+    def validate_code(self, value):
+        return value.strip().upper()  # промокоды без учёта регистра — храним капсом
+
+    def validate_discount_percent(self, value):
+        if not (0 < value <= 100):
+            raise serializers.ValidationError('Скидка должна быть от 1 до 100%')
+        return value
+
+class LoyaltyTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoyaltyTier
+        fields = ['id', 'min_total_spent', 'discount_percent']
+
+
+class MyDiscountSerializer(serializers.Serializer):
+    """Ответ для 'какая у меня сейчас скидка и что нужно для следующего уровня'."""
+    total_spent = serializers.DecimalField(max_digits=10, decimal_places=2)
+    current_discount_percent = serializers.IntegerField()
+    next_tier_threshold = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
+    next_tier_discount_percent = serializers.IntegerField(allow_null=True)

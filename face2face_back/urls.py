@@ -13,6 +13,8 @@ urlpatterns = [
     path('api/orders/', include('booking.urls.orders')),
     path('api/cosmetologist/', include('booking.urls.cosmetologist')),
     path('api/category/', include('booking.urls.category')),
+    path('api/promotions/', include('booking.urls.promotions')),
+    path('api/clients/', include('booking.urls.clients')),
 ]
 
 if settings.DEBUG:

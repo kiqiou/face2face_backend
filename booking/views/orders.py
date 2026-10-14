@@ -34,7 +34,7 @@ def get_orders(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_order_by_id(request, order_id):
     order = get_object_or_404(
         Order.objects.prefetch_related('items__product'), id=order_id
@@ -78,15 +78,18 @@ def get_analytics(request):
     exclude_cancelled = request.query_params.get('exclude_cancelled', 'true').lower() == 'true'
 
     items = OrderItem.objects.select_related('order', 'product')
+    orders_qs = Order.objects.all()
 
     if exclude_cancelled:
         items = items.exclude(order__status='cancelled')
+        orders_qs = orders_qs.exclude(status='cancelled')
     if date_from:
         items = items.filter(order__created_at__date__gte=date_from)
+        orders_qs = orders_qs.filter(created_at__date__gte=date_from)
     if date_to:
         items = items.filter(order__created_at__date__lte=date_to)
+        orders_qs = orders_qs.filter(created_at__date__lte=date_to)
 
-    # 1. СНАЧАЛА добавляем вычисления для КАЖДОЙ строки через аннотацию
     items = items.annotate(
         calculated_revenue=ExpressionWrapper(
             F('price_at_order') * F('quantity'),
@@ -98,46 +101,49 @@ def get_analytics(request):
         )
     )
 
-    # 2. ТЕПЕРЬ передаем созданные поля в Sum
     totals = items.aggregate(
         revenue=Sum('calculated_revenue'),
         cost=Sum('calculated_cost'),
         items_sold=Sum('quantity'),
     )
-    revenue = totals['revenue'] or 0
+    gross_revenue = totals['revenue'] or 0
     cost = totals['cost'] or 0
+
+    # скидка — отдельным запросом по Order, иначе задвоится при join с OrderItem
+    total_discount = orders_qs.aggregate(discount=Sum('discount_amount'))['discount'] or 0
+
+    revenue = gross_revenue - total_discount  # ← чистая выручка с учётом скидок
     profit = revenue - cost
     margin = round((profit / revenue) * 100, 2) if revenue else 0
-
-    orders_qs = Order.objects.all()
-    if exclude_cancelled:
-        orders_qs = orders_qs.exclude(status='cancelled')
-    if date_from:
-        orders_qs = orders_qs.filter(created_at__date__gte=date_from)
-    if date_to:
-        orders_qs = orders_qs.filter(created_at__date__lte=date_to)
 
     orders_count = orders_qs.count()
     avg_order_value = round(revenue / orders_count, 2) if orders_count else 0
 
-    # Исправленный блок daily: используем 'calculated_revenue' и 'calculated_cost'
+    # ---- daily: добавляем скидку по дням отдельным запросом ----
     daily = (
         items.annotate(day=TruncDate('order__created_at'))
         .values('day')
         .annotate(revenue=Sum('calculated_revenue'), cost=Sum('calculated_cost'))
         .order_by('day')
     )
+
+    daily_discounts = (
+        orders_qs.annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(discount=Sum('discount_amount'))
+    )
+    discount_by_day = {d['day']: float(d['discount'] or 0) for d in daily_discounts}
+
     daily_data = [
         {
             'date': d['day'].isoformat(),
-            'revenue': float(d['revenue'] or 0),
+            'revenue': float(d['revenue'] or 0) - discount_by_day.get(d['day'], 0),
             'cost': float(d['cost'] or 0),
-            'profit': float((d['revenue'] or 0) - (d['cost'] or 0)),
+            'profit': float(d['revenue'] or 0) - discount_by_day.get(d['day'], 0) - float(d['cost'] or 0),
         }
         for d in daily
     ]
 
-    # Исправленный блок top_products: используем 'calculated_revenue' и 'calculated_cost'
     top_products = (
         items.values('product__id', 'product__name')
         .annotate(quantity=Sum('quantity'), revenue=Sum('calculated_revenue'), cost=Sum('calculated_cost'))
@@ -148,7 +154,7 @@ def get_analytics(request):
             'id': p['product__id'],
             'name': p['product__name'],
             'quantity': p['quantity'],
-            'revenue': float(p['revenue'] or 0),
+            'revenue': float(p['revenue'] or 0),  # скидка на заказ, не на конкретный товар — тут оставляем gross
             'cost': float(p['cost'] or 0),
             'profit': float((p['revenue'] or 0) - (p['cost'] or 0)),
         }
@@ -161,6 +167,8 @@ def get_analytics(request):
 
     return Response({
         'summary': {
+            'gross_revenue': float(gross_revenue),
+            'total_discount': float(total_discount),
             'revenue': float(revenue),
             'cost': float(cost),
             'profit': float(profit),

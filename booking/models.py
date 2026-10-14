@@ -1,6 +1,7 @@
 from datetime import timedelta
 from cloudinary.models import CloudinaryField
 from django.db import models
+from django.utils import timezone
 from users.models import User
 
 class Cosmetologist(models.Model):
@@ -131,10 +132,25 @@ class Product(models.Model):
     fluoride_content = models.CharField(max_length=50, blank=True)
     batch_number = models.CharField(max_length=50, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
-    # --- Подтверждение соответствия ---
+        # --- Подтверждение соответствия ---
     conformity_document_number = models.CharField(max_length=100, blank=True)
     conformity_document_valid_until = models.DateField(null=True, blank=True)
+    # booking/models.py, в Product
+    sale_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Акционная цена — если задана и меньше price_amount, товар считается 'по акции'"
+    )
+
+    @property
+    def effective_price(self):
+        """Цена, которая реально применяется — акционная, если она ниже обычной."""
+        if self.sale_price is not None and self.sale_price < self.price_amount:
+            return self.sale_price
+        return self.price_amount
+
+    @property
+    def is_on_sale(self):
+        return self.sale_price is not None and self.sale_price < self.price_amount
 
     def __str__(self):
         return f"{self.name} ({self.manufacturer})"
@@ -158,6 +174,54 @@ class ProductMedia(models.Model):
     def __str__(self):
         return f"{self.product.name} — {self.media_type} #{self.id}"
 
+class PromoCode(models.Model):
+    code = models.CharField(max_length=32, unique=True)
+    discount_percent = models.PositiveSmallIntegerField(help_text="0–100")
+    is_first_order_only = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    valid_from = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    usage_limit = models.PositiveIntegerField(null=True, blank=True, help_text="Пусто = без ограничения")
+    used_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        now = timezone.now()
+        if not self.is_active:
+            return False
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_until and now > self.valid_until:
+            return False
+        if self.usage_limit is not None and self.used_count >= self.usage_limit:
+            return False
+        return True
+
+    def __str__(self):
+        return self.code
+
+
+class PromoCodeUsage(models.Model):
+    promo_code = models.ForeignKey(PromoCode, on_delete=models.CASCADE, related_name='usages')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    order = models.OneToOneField('booking.Order', on_delete=models.SET_NULL, null=True, blank=True)
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('promo_code', 'user')  # один промокод — один раз на юзера
+
+
+class LoyaltyTier(models.Model):
+    """Пороги персональной скидки по сумме выполненных заказов."""
+    min_total_spent = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_percent = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ['-min_total_spent']
+
+    def __str__(self):
+        return f"от {self.min_total_spent} BYN — {self.discount_percent}%"
+    
 class Order(models.Model):
     STATUS_CHOICES = [
         ('new', 'Новый'),
@@ -182,6 +246,12 @@ class Order(models.Model):
 
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='new')
     created_at = models.DateTimeField(auto_now_add=True)
+    # фиксируем цену на момент заказа — если товар подорожает завтра, старый заказ не должен пересчитаться
+    # booking/models.py, в Order
+    promo_code = models.ForeignKey(PromoCode, on_delete=models.SET_NULL, null=True, blank=True)
+    discount_percent = models.PositiveSmallIntegerField(default=0)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
 
 
 class OrderItem(models.Model):
@@ -191,4 +261,6 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     price_at_order = models.DecimalField(max_digits=10, decimal_places=2)
     cost_price_at_order = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    # фиксируем цену на момент заказа — если товар подорожает завтра, старый заказ не должен пересчитаться
+
+
+

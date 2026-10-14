@@ -1,3 +1,4 @@
+from django.utils import timezone
 import uuid
 from django.core.cache import cache
 from rest_framework.decorators import api_view
@@ -17,9 +18,14 @@ def get_tokens_for_user(user):
 
 @api_view(['POST'])
 def generate_auth_token(request):
-    # телефон с фронта больше НЕ принимаем — только генерируем токен
+    if not request.data.get('consent'):
+        return Response({'error': 'Необходимо согласие на обработку персональных данных'}, status=400)
+
     token = uuid.uuid4().hex
-    cache.set(f"auth_pending:{token}", True, 300)  # просто маркер "ждём подтверждения"
+    cache.set(f"auth_pending:{token}", {
+        'consent_at': timezone.now().isoformat(),
+        'consent_ip': request.META.get('REMOTE_ADDR'),
+    }, 300)
 
     return Response({
         'auth_token': token,
@@ -36,6 +42,7 @@ PHONE_RE = re.compile(r'^\+375\d{9}$')
 @api_view(['GET'])
 def check_auth_status(request, token):
     result = cache.get(f"auth_result:{token}")
+    pending_data = cache.get(f"auth_pending:{token}") or {}
 
     if not result:
         return Response({'status': 'pending'})
@@ -52,7 +59,13 @@ def check_auth_status(request, token):
 
     user, created = User.objects.get_or_create(
         phone=phone,
-        defaults={'username': phone, 'is_active': True},
+        defaults={
+            'username': phone,
+            'is_active': True,
+            'role': Role.objects.get_or_create(name='client')[0],
+            'personal_data_consent_at': pending_data.get('consent_at'),
+            'personal_data_consent_ip': pending_data.get('consent_ip'),
+        },
     )
 
     if user.telegram_id != telegram_id:
