@@ -11,6 +11,11 @@ services:
       DEBUG: ${DEBUG}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
       CLOUDINARY_URL: ${CLOUDINARY_URL}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
     volumes:
       - .:/app
     command: gunicorn face2face_back.wsgi:application --bind 0.0.0.0:8000 --workers 3
