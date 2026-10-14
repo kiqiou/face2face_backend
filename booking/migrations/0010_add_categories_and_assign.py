@@ -85,7 +85,7 @@ def reverse_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('booking', '0009_delete_timeslot'), 
+        ('booking', '0022_product_sale_price'), 
     ]
 
     operations = [
