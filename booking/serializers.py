@@ -3,7 +3,7 @@ import mimetypes
 from rest_framework import serializers
 from booking.services import resolve_discount
 from users.models import User
-from booking.models import Category, Cosmetologist, ExchangeRate, LoyaltyTier, Manufacturer, Procedure, Booking, Product, ProductMedia, PromoCode, PromoCodeUsage, SkinType, WorkDay
+from booking.models import Cosmetologist, ExchangeRate, LoyaltyTier, Manufacturer, Procedure, Booking, Product, ProductMedia, PromoCode, PromoCodeUsage, SkinType, WorkDay
 from users.serializers.user import UserSerializer
 
 class CosmetologistSerializer(serializers.ModelSerializer):
@@ -17,18 +17,13 @@ class CosmetologistSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         return obj.avatar_url
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name']
 
 class ProcedureSerializer(serializers.ModelSerializer):
     cosmetologist = CosmetologistSerializer()
-    category = CategorySerializer()
 
     class Meta:
         model = Procedure
-        fields = ['id', 'name', 'price', 'duration', 'buffer_time', 'description', 'cosmetologist', 'category']
+        fields = ['id', 'name', 'price', 'duration', 'buffer_time', 'description', 'cosmetologist']
 
 class ProcedureCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,7 +34,6 @@ class ProcedureCreateSerializer(serializers.ModelSerializer):
             'duration',
             'description',
             'buffer_time',
-            'category'
         ]
 
 class WorkDaySerializer(serializers.ModelSerializer):
@@ -91,7 +85,7 @@ from rest_framework import serializers
 from users.models import User
 from users.serializers.user import UserSerializer
 from booking.models import (
-    Category, Cosmetologist, ExchangeRate, Manufacturer, Procedure, Booking,
+    Cosmetologist, ExchangeRate, Manufacturer, Procedure, Booking,
     Product, SkinType, WorkDay, ProductPurpose, Collection, Order, OrderItem
 )
 

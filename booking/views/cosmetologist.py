@@ -3,9 +3,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from booking.views.booking import calculate_free_intervals
 from users.models import User
-from booking.models import Category, Cosmetologist, Procedure, Booking, Product, WorkDay
+from booking.models import  Cosmetologist, Procedure, Booking, Product, WorkDay
 from booking.serializers import (
-    CategorySerializer, CosmetologistSerializer, ProcedureSerializer, BookingSerializer, ProductSerializer, WorkDaySerializer
+    CosmetologistSerializer, ProcedureSerializer, BookingSerializer, ProductSerializer, WorkDaySerializer
 )
 
 @api_view(['GET'])

@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('booking', '0011_merge_20260817_1108'),
+        ('booking', '0009_delete_timeslot'),
     ]
 
     operations = [
