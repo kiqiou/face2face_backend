@@ -5,9 +5,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from booking.models import Cosmetologist
 from face2face_back import settings
-from users.models import Role, User
+from users.models import User
 from users.serializers.user import UserSerializer
 
 
@@ -62,7 +61,6 @@ def check_auth_status(request, token):
         defaults={
             'username': phone,
             'is_active': True,
-            'role': Role.objects.get_or_create(name='client')[0],
             'personal_data_consent_at': pending_data.get('consent_at'),
             'personal_data_consent_ip': pending_data.get('consent_ip'),
         },
@@ -76,12 +74,6 @@ def check_auth_status(request, token):
         user.is_active = True
         user.save(update_fields=['telegram_id', 'is_active'])
 
-    cosmetologist_data = None
-    if user.role_id == 2 or str(user.role) == "cosmetologist":
-        cosmetologist_profile = Cosmetologist.objects.filter(user_id=user.id).first()
-        if cosmetologist_profile:
-            cosmetologist_data = {'id': cosmetologist_profile.id}
-
     tokens = get_tokens_for_user(user)
     cache.delete(f"auth_result:{token}")
 
@@ -90,5 +82,4 @@ def check_auth_status(request, token):
         'user': UserSerializer(user).data,
         'access': tokens['access'],
         'refresh': tokens['refresh'],
-        'cosmetologist_profile': cosmetologist_data,
     })

@@ -1,93 +1,9 @@
 import mimetypes
-
 from rest_framework import serializers
 from booking.services import resolve_discount
-from users.models import User
-from booking.models import Cosmetologist, ExchangeRate, LoyaltyTier, Manufacturer, Procedure, Booking, Product, ProductMedia, PromoCode, PromoCodeUsage, SkinType, WorkDay
+from booking.models import Collection, ExchangeRate, LoyaltyTier, Manufacturer, Order, OrderItem, Product, ProductMedia, ProductPurpose, PromoCode, PromoCodeUsage, SkinType
 from users.serializers.user import UserSerializer
-
-class CosmetologistSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    avatar_url = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Cosmetologist
-        fields = ['user', 'bio', 'specializations', 'id', 'avatar_url']
-
-    def get_avatar_url(self, obj):
-        return obj.avatar_url
-
-
-class ProcedureSerializer(serializers.ModelSerializer):
-    cosmetologist = CosmetologistSerializer()
-
-    class Meta:
-        model = Procedure
-        fields = ['id', 'name', 'price', 'duration', 'buffer_time', 'description', 'cosmetologist']
-
-class ProcedureCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Procedure
-        fields = [
-            'name',
-            'price',
-            'duration',
-            'description',
-            'buffer_time',
-        ]
-
-class WorkDaySerializer(serializers.ModelSerializer):
-    cosmetologist = CosmetologistSerializer()
-
-    class Meta:
-        model = WorkDay
-        fields = [
-            'id',
-            'date',
-            'start_time',
-            'end_time',
-            'is_working',
-            'cosmetologist'
-        ]
-
-class WorkDayCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WorkDay
-        fields = [
-            'id',
-            'date',
-            'start_time',
-            'end_time',
-            'is_working'
-        ]
-
-class BookingSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    cosmetologist = CosmetologistSerializer()
-    procedures = ProcedureSerializer(many=True)
-
-    class Meta:
-        model = Booking
-        fields = [
-            'id',
-            'user',
-            'cosmetologist',
-            'date',
-            'start_time',
-            'end_time',
-            'duration',
-            'price',
-            'status',
-            'procedures'
-        ]
-
-from rest_framework import serializers
-from users.models import User
-from users.serializers.user import UserSerializer
-from booking.models import (
-    Cosmetologist, ExchangeRate, Manufacturer, Procedure, Booking,
-    Product, SkinType, WorkDay, ProductPurpose, Collection, Order, OrderItem
-)
+from django.db.models import F
 
 class ManufacturerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -275,9 +191,6 @@ class OrderItemCreateSerializer(serializers.Serializer):
     """Один товар в заказе на этапе оформления — просто id + количество."""
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.IntegerField(min_value=1, default=1)
-
-from django.db.models import F
-
 
 class OrderCreateSerializer(serializers.ModelSerializer):
     items = OrderItemCreateSerializer(many=True, write_only=True)
