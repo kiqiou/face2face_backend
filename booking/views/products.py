@@ -76,7 +76,7 @@ def add_product(request):
     serializer = ProductCreateSerializer(data=request.data)
     if serializer.is_valid():
         product = serializer.save()
-        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+        return Response(ProductAdminSerializer(product).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -88,7 +88,7 @@ def update_product(request, product_id):
     serializer = ProductCreateSerializer(product, data=request.data, partial=True)
     if serializer.is_valid():
         product = serializer.save()
-        return Response(ProductSerializer(product).data)
+        return Response(ProductAdminSerializer(product).data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

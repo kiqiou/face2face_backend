@@ -81,7 +81,7 @@ class Product(models.Model):
     is_for_children = models.BooleanField(default=False)
     color_shade = models.CharField(max_length=100, blank=True)
     fluoride_content = models.CharField(max_length=50, blank=True)
-    batch_number = models.CharField(max_length=50, blank=True)
+    batch_number = models.CharField(max_length=50, blank=True, null=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
         # --- Подтверждение соответствия ---
     conformity_document_number = models.CharField(max_length=100, blank=True)
