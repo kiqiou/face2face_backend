@@ -72,20 +72,20 @@ class Product(models.Model):
 
     # --- Обязательные по ТР ТС 009/2011 ст.5 п.9.2 ---
     net_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    net_amount_unit = models.CharField(max_length=5, choices=UNIT_CHOICES, blank=True)
-    ingredients = models.TextField(blank=True)
+    net_amount_unit = models.CharField(max_length=5, choices=UNIT_CHOICES, blank=True, null=True)
+    ingredients = models.TextField(blank=True, null=True)
     shelf_life_months = models.PositiveIntegerField(null=True, blank=True)
-    storage_conditions = models.TextField(blank=True)
-    precautions = models.TextField(blank=True)
-    usage_instructions = models.TextField(blank=True)
+    storage_conditions = models.TextField(blank=True, null=True)
+    precautions = models.TextField(blank=True, null=True)
+    usage_instructions = models.TextField(blank=True, null=True)
     is_for_children = models.BooleanField(default=False)
-    color_shade = models.CharField(max_length=100, blank=True)
-    fluoride_content = models.CharField(max_length=50, blank=True)
+    color_shade = models.CharField(max_length=100, blank=True, null=True)
+    fluoride_content = models.CharField(max_length=50, blank=True, null=True)
     batch_number = models.CharField(max_length=50, blank=True, null=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
         # --- Подтверждение соответствия ---
-    conformity_document_number = models.CharField(max_length=100, blank=True)
-    conformity_document_valid_until = models.DateField(null=True, blank=True)
+    conformity_document_number = models.CharField(max_length=100, blank=True, null=True)
+    conformity_document_valid_until = models.DateField(null=True, blank=True,)
     sale_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Акционная цена — если задана и меньше price_amount, товар считается 'по акции'"
