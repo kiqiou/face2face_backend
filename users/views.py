@@ -8,7 +8,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from face2face_back import settings
 from users.models import User
 from users.serializers.user import UserSerializer
-
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -83,3 +84,21 @@ def check_auth_status(request, token):
         'access': tokens['access'],
         'refresh': tokens['refresh'],
     })
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_profile_name(request):
+    name = (request.data.get('username') or '').strip()
+
+    if not name:
+        return Response({'error': 'Имя не может быть пустым'}, status=400)
+    if len(name) > 150:
+        return Response({'error': 'Имя слишком длинное'}, status=400)
+    if User.objects.filter(username=name).exclude(id=request.user.id).exists():
+        return Response({'error': 'Это имя уже занято'}, status=400)
+
+    user = request.user
+    user.username = name
+    user.save(update_fields=['username'])
+
+    return Response({'user': UserSerializer(user).data})
