@@ -10,49 +10,76 @@ from booking.serializers import (
     ManufacturerSerializer, SkinTypeSerializer,
     ProductPurposeSerializer, CollectionSerializer,
 )
+from django.db.models import Q, F
+from rest_framework.pagination import PageNumberPagination
+
+
+class ProductPagination(PageNumberPagination):
+    page_size = 12
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+def _int_list(request, name):
+    """?purpose=1&purpose=2 -> [1, 2]"""
+    return [int(v) for v in request.query_params.getlist(name) if v.isdigit()]
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_products(request):
+    is_staff = request.user.is_authenticated and request.user.is_staff
+
     products = Product.objects.select_related('manufacturer').prefetch_related(
-        'skin_types', 'purposes', 'collections'
+        'skin_types', 'purposes', 'collections', 'media'
     )
 
-    manufacturer_id = request.query_params.get('manufacturer')
-    if manufacturer_id:
-        products = products.filter(manufacturer_id=manufacturer_id)
-
-    skin_type_id = request.query_params.get('skin_type')
-    if skin_type_id:
-        products = products.filter(skin_types__id=skin_type_id)
-
-    purpose_id = request.query_params.get('purpose')
-    if purpose_id:
-        products = products.filter(purposes__id=purpose_id)
-
-    collection_id = request.query_params.get('collection')
-    if collection_id:
-        products = products.filter(collections__id=collection_id)
+    if ids := _int_list(request, 'manufacturer'):
+        products = products.filter(manufacturer_id__in=ids)
+    if ids := _int_list(request, 'skin_type'):
+        products = products.filter(skin_types__id__in=ids)
+    if ids := _int_list(request, 'purpose'):
+        products = products.filter(purposes__id__in=ids)
+    if ids := _int_list(request, 'collection'):
+        products = products.filter(collections__id__in=ids)
 
     in_stock = request.query_params.get('in_stock')
     if in_stock is not None:
         products = products.filter(in_stock=in_stock.lower() == 'true')
 
-    ordering = request.query_params.get('ordering')  # 'price' или '-price'
-    if ordering in ('price_amount', '-price_amount'):
-        products = products.order_by(ordering)
+    # --- поиск ---
+    search = request.query_params.get('search', '').strip()
+    if search:
+        for term in search.split():  # каждое слово должно встретиться (AND)
+            q = (
+                Q(name__icontains=term)
+                | Q(description__icontains=term)
+                | Q(manufacturer__name__icontains=term)
+            )
+            if is_staff:  # только для админки
+                q |= Q(batch_number__icontains=term)
+                q |= Q(conformity_document_number__icontains=term)
+            products = products.filter(q)
 
     products = products.distinct()
-    
-    is_staff = request.user.is_authenticated and request.user.is_staff
-    serializer_class = ProductAdminSerializer if is_staff else ProductSerializer
-    print(f"Using serializer: {serializer_class.__name__}")  # Debugging line
-    print(request.user.is_staff)
-    print(request.user.is_authenticated)
-    serializer = serializer_class(products, many=True)
-    return Response(serializer.data)
 
+    on_sale = request.query_params.get('on_sale')
+    if on_sale is not None and on_sale.lower() == 'true':
+        products = products.filter(sale_price__isnull=False, sale_price__lt=F('price_amount'))
+
+    # --- сортировка (обязательно стабильная, иначе страницы "плывут") ---
+    ordering = request.query_params.get('ordering')
+    if ordering in ('price_amount', '-price_amount'):
+        products = products.order_by(ordering, '-id')
+    else:
+        products = products.order_by('-created_at', '-id')
+
+    serializer_class = ProductAdminSerializer if is_staff else ProductSerializer
+
+    paginator = ProductPagination()
+    page = paginator.paginate_queryset(products, request)
+    serializer = serializer_class(page, many=True, context={'request': request})
+    return paginator.get_paginated_response(serializer.data)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
