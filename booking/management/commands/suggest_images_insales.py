@@ -13,6 +13,17 @@ OG = re.compile(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"')
 def words(s):
     return set(re.findall(r'[a-zа-яё0-9]+', html.unescape(s).lower()))
 
+def queries(name):
+    ws = name.split()
+    cyr = ' '.join(w for w in ws if re.search('[а-яё]', w, re.I))
+    lat = ' '.join(w for w in ws if not re.search('[а-яё]', w, re.I))
+    out = []
+    for q in (name, cyr, lat, ' '.join(ws[:3])):
+        q = q.strip(' «»"')
+        if len(q) > 2 and q not in out:
+            out.append(q)
+    return out
+
 
 def score(name, title, net):
     a, b = words(name), words(title)
@@ -43,12 +54,19 @@ class Command(BaseCommand):
             for p in qs:
                 row = [p.id, p.name, 0, '', '', '']
                 try:
-                    r = requests.get(f'{site}/search?q={quote(p.name[:80])}', headers=H, timeout=20)
                     cands = {}
-                    for url, inner in LINK.findall(r.text):
-                        t = html.unescape(re.sub(r'<[^>]+>', ' ', inner)).strip()
-                        if len(t) > 5:
-                            cands[url if url.startswith('http') else site + url] = t
+                    best = 0
+                    for q in queries(p.name):
+                        r = requests.get(f'{site}/search?q={quote(q)}', headers=H, timeout=20)
+                        for url, inner in LINK.findall(r.text):
+                            t = html.unescape(re.sub(r'<[^>]+>', ' ', inner)).strip()
+                            if len(t) > 5:
+                                cands[url if url.startswith('http') else site + url] = t
+                        if cands:
+                            best = max(score(p.name, t, p.net_amount) for t in cands.values())
+                        if best >= 0.7:
+                            break
+                        time.sleep(0.5)
                     if cands:
                         url, title = max(cands.items(), key=lambda kv: score(p.name, kv[1], p.net_amount))
                         page = requests.get(url, headers=H, timeout=20).text
