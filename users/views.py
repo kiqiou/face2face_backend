@@ -1,3 +1,5 @@
+import token
+
 from django.utils import timezone
 import uuid
 from django.core.cache import cache
@@ -45,6 +47,8 @@ def check_auth_status(request, token):
     pending_data = cache.get(f"auth_pending:{token}") or {}
 
     if not result:
+        if pending_data is None:
+            return Response({'status': 'expired'})
         return Response({'status': 'pending'})
 
     phone = result['phone']
@@ -77,6 +81,7 @@ def check_auth_status(request, token):
 
     tokens = get_tokens_for_user(user)
     cache.delete(f"auth_result:{token}")
+    cache.delete(f"auth_pending:{token}")
 
     return Response({
         'status': 'confirmed',
@@ -102,3 +107,9 @@ def update_profile_name(request):
     user.save(update_fields=['username'])
 
     return Response({'user': UserSerializer(user).data})
+
+@api_view(['POST'])
+def cancel_auth(request, token):
+    cache.delete(f"auth_pending:{token}")
+    cache.delete(f"auth_result:{token}")
+    return Response({'status': 'cancelled'})
