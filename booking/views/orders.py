@@ -77,18 +77,20 @@ def get_analytics(request):
     date_to = request.query_params.get('date_to')
     completed_only = request.query_params.get('completed_only', 'true').lower() == 'true'
 
-    items = OrderItem.objects.select_related('order', 'product')
     orders_qs = Order.objects.all()
 
     if completed_only:
-        items = items.filter(order__status='done')
         orders_qs = orders_qs.filter(status='done')
+
     if date_from:
-        items = items.filter(order__created_at__date__gte=date_from)
         orders_qs = orders_qs.filter(created_at__date__gte=date_from)
+
     if date_to:
-        items = items.filter(order__created_at__date__lte=date_to)
         orders_qs = orders_qs.filter(created_at__date__lte=date_to)
+
+    items = OrderItem.objects.select_related('order', 'product').filter(
+        order__in=orders_qs
+    )
 
     items = items.annotate(
         calculated_revenue=ExpressionWrapper(
@@ -162,7 +164,9 @@ def get_analytics(request):
     ]
 
     status_breakdown = list(
-        Order.objects.values('status').annotate(count=Count('id')).order_by('status')
+        orders_qs.values('status')
+        .annotate(count=Count('id'))
+        .order_by('status')
     )
 
     return Response({
