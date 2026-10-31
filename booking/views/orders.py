@@ -75,14 +75,14 @@ def delete_order(request, order_id):
 def get_analytics(request):
     date_from = request.query_params.get('date_from')
     date_to = request.query_params.get('date_to')
-    exclude_cancelled = request.query_params.get('exclude_cancelled', 'true').lower() == 'true'
+    completed_only = request.query_params.get('completed_only', 'true').lower() == 'true'
 
     items = OrderItem.objects.select_related('order', 'product')
     orders_qs = Order.objects.all()
 
-    if exclude_cancelled:
-        items = items.exclude(order__status='cancelled')
-        orders_qs = orders_qs.exclude(status='cancelled')
+    if completed_only:
+        items = items.filter(order__status='done')
+        orders_qs = orders_qs.filter(status='done')
     if date_from:
         items = items.filter(order__created_at__date__gte=date_from)
         orders_qs = orders_qs.filter(created_at__date__gte=date_from)
