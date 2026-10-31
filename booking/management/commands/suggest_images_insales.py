@@ -61,6 +61,7 @@ class Command(BaseCommand):
         p.add_argument('--brand', required=True, help='часть названия производителя в БД')
         p.add_argument('--engine', choices=list(ENGINES), default='insales')
         p.add_argument('--search', help='свой шаблон адреса поиска: {site}/...{q}')
+        p.add_argument('--catalog', help='шаблон адреса списка товаров с {n} для номера страницы')
         p.add_argument('--link', default='/product/', help='часть адреса карточки товара')
         p.add_argument('--limit', type=int, default=0)
 
@@ -69,6 +70,26 @@ class Command(BaseCommand):
         tpl = o['search'] or ENGINES[o['engine']]
         link_rx = re.compile(
             rf'<a[^>]+href="([^"]*?{re.escape(o["link"])}[^"#?]+)[^"]*"[^>]*>(.*?)</a>', re.S)
+
+        def collect(text, into):
+            for url, inner in link_rx.findall(text):
+                t = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', inner))).strip()
+                u = urljoin(site + '/', url)
+                if len(t) > 5 and not t.startswith('http') and len(t) > len(into.get(u, '')):
+                    into[u] = t
+
+        catalog = {}
+        if o['catalog']:
+            for n in range(1, 31):
+                before = len(catalog)
+                r = requests.get(o['catalog'].format(n=n), headers=H, timeout=15)
+                collect(r.text, catalog)
+                self.stdout.write(f'страница {n}: новых {len(catalog) - before}')
+                if len(catalog) == before:
+                    break
+                time.sleep(1)
+            self.stdout.write(f'в каталоге сайта: {len(catalog)} товаров')
+
         qs = (Product.objects.filter(media__isnull=True, manufacturer__name__icontains=o['brand'])
               .select_related('manufacturer').order_by('id'))
         if o['limit']:
@@ -78,29 +99,28 @@ class Command(BaseCommand):
             w.writerow(['id', 'name', 'score', 'found_title', 'image_url', 'product_url'])
             for p in qs:
                 row = [p.id, p.name, 0, '', '', '']
-                n = 0
+                cands = dict(catalog)
                 try:
-                    cands, best = {}, 0
-                    for q in queries(p.name):
-                        r = requests.get(tpl.format(site=site, q=quote(q)), headers=H, timeout=15)
-                        for url, inner in link_rx.findall(r.text):
-                            t = html.unescape(re.sub(r'<[^>]+>', ' ', inner)).strip()
-                            if len(t) > 5:
-                                cands[urljoin(site + '/', url)] = re.sub(r'\s+', ' ', t)
-                        if cands:
-                            best = max(score(p.name, t, p.net_amount) for t in cands.values())
-                        if best >= 0.7:
-                            break
-                        time.sleep(0.5)
-                    n = len(cands)
+                    if not catalog:
+                        best = 0
+                        for q in queries(p.name):
+                            r = requests.get(tpl.format(site=site, q=quote(q)), headers=H, timeout=15)
+                            collect(r.text, cands)
+                            if cands:
+                                best = max(score(p.name, t, p.net_amount) for t in cands.values())
+                            if best >= 0.7:
+                                break
+                            time.sleep(0.5)
                     if cands:
                         url, title = max(cands.items(), key=lambda kv: score(p.name, kv[1], p.net_amount))
-                        page = requests.get(url, headers=H, timeout=15).text
-                        row = [p.id, p.name, score(p.name, title, p.net_amount), title[:120],
-                               pick_image(page, url), url]
+                        sc = score(p.name, title, p.net_amount)
+                        if sc >= 0.3:
+                            page = requests.get(url, headers=H, timeout=15).text
+                            row = [p.id, p.name, sc, title[:120], pick_image(page, url), url]
                 except Exception as e:
                     row[3] = f'ошибка: {e}'
                 w.writerow(row)
                 f.flush()
-                self.stdout.write(f"{p.id}  кандидатов={n}  score={row[2]}  {row[3][:50]}")
-                time.sleep(1)
+                self.stdout.write(f"{p.id}  кандидатов={len(cands)}  score={row[2]}  {row[3][:50]}")
+                if not catalog:
+                    time.sleep(1)
