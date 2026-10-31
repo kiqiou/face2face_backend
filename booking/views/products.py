@@ -126,9 +126,6 @@ def delete_product(request, product_id):
     product.delete()
     return Response({'detail': 'Продукт удалён'}, status=status.HTTP_204_NO_CONTENT)
 
-
-# --- справочники (manufacturer.py у вас уже частично есть — вот полный набор) ---
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_manufacturers(request):
