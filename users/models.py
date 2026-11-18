@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator
 
+
 class User(AbstractUser):
     telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
     personal_data_consent_at = models.DateTimeField(null=True, blank=True)
@@ -15,3 +16,11 @@ class User(AbstractUser):
         unique=True,
         validators=[RegexValidator(r'^\+375\d{9}$', message='Неверный формат номера (+375XXXXXXXXX)')]
     )
+
+class SkinQuizResult(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='skin_quiz')
+    skin_type = models.ForeignKey(
+        'booking.SkinType',
+        on_delete=models.CASCADE
+    )
+    updated_at = models.DateTimeField(auto_now=True)

@@ -7,11 +7,14 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from booking.models import SkinType
 from face2face_back import settings
-from users.models import User
-from users.serializers.user import UserSerializer
+from users.models import SkinQuizResult, User
+from users.serializers.user import SkinQuizResultSerializer, UserSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -113,3 +116,12 @@ def cancel_auth(request, token):
     cache.delete(f"auth_pending:{token}")
     cache.delete(f"auth_result:{token}")
     return Response({'status': 'cancelled'})
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def my_skin_type(request):
+    if request.method == 'PUT':
+        st = get_object_or_404(SkinType, id=request.data.get('skin_type'))
+        SkinQuizResult.objects.update_or_create(user=request.user, defaults={'skin_type': st})
+    obj = SkinQuizResult.objects.filter(user=request.user).first()
+    return Response({'skin_type': SkinQuizResultSerializer(obj).data if obj else None})
