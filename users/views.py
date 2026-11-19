@@ -123,5 +123,11 @@ def my_skin_type(request):
     if request.method == 'PUT':
         st = get_object_or_404(SkinType, id=request.data.get('skin_type'))
         SkinQuizResult.objects.update_or_create(user=request.user, defaults={'skin_type': st})
-    obj = SkinQuizResult.objects.filter(user=request.user).first()
-    return Response({'skin_type': SkinQuizResultSerializer(obj).data if obj else None})
+    obj = SkinQuizResult.objects.select_related('skin_type').filter(user=request.user).first()
+    return Response({
+        'skin_type': {
+            'id': obj.skin_type_id,
+            'name': obj.skin_type.name,
+            'updated_at': obj.updated_at,
+        } if obj else None
+    })
