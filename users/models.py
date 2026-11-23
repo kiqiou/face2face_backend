@@ -19,8 +19,6 @@ class User(AbstractUser):
 
 class SkinQuizResult(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='skin_quiz')
-    skin_type = models.ForeignKey(
-        'booking.SkinType',
-        on_delete=models.CASCADE
-    )
+    skin_type = models.ForeignKey('booking.SkinType', on_delete=models.CASCADE)
+    concerns = models.ManyToManyField('booking.ProductPurpose', blank=True, related_name='+')
     updated_at = models.DateTimeField(auto_now=True)

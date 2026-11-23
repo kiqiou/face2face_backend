@@ -7,10 +7,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from booking.models import SkinType
+from booking.models import ProductPurpose, SkinType
 from face2face_back import settings
 from users.models import SkinQuizResult, User
-from users.serializers.user import SkinQuizResultSerializer, UserSerializer
+from users.serializers.user import UserSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -122,12 +122,15 @@ def cancel_auth(request, token):
 def my_skin_type(request):
     if request.method == 'PUT':
         st = get_object_or_404(SkinType, id=request.data.get('skin_type'))
-        SkinQuizResult.objects.update_or_create(user=request.user, defaults={'skin_type': st})
-    obj = SkinQuizResult.objects.select_related('skin_type').filter(user=request.user).first()
+        obj, _ = SkinQuizResult.objects.update_or_create(user=request.user, defaults={'skin_type': st})
+        ids = request.data.get('concerns') or []
+        obj.concerns.set(ProductPurpose.objects.filter(id__in=ids))
+
+    obj = (SkinQuizResult.objects.select_related('skin_type')
+           .prefetch_related('concerns').filter(user=request.user).first())
+    if not obj:
+        return Response({'skin_type': None, 'concerns': []})
     return Response({
-        'skin_type': {
-            'id': obj.skin_type_id,
-            'name': obj.skin_type.name,
-            'updated_at': obj.updated_at,
-        } if obj else None
+        'skin_type': {'id': obj.skin_type_id, 'name': obj.skin_type.name, 'updated_at': obj.updated_at},
+        'concerns': [c.id for c in obj.concerns.all()],
     })
