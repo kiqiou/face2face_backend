@@ -28,7 +28,7 @@ def get_clients(request):
     )
     totals_map = {row['order__user_id']: row for row in totals_by_user}
 
-    users_qs = User.objects.filter(is_staff=True)
+    users_qs = User.objects.filter(is_staff=False)
     if search:
         users_qs = users_qs.filter(
             models.Q(username__icontains=search) | models.Q(phone__icontains=search)
